@@ -34,7 +34,7 @@
 #include "mac_server_ctrl.h"
 
 //------------------------------------------------------------------------------
-#define	MAC_SERVER_CTRL_PYTHON_FILE_NAME	"mac_server_ctrl.py"
+#define	MAC_SERVER_CTRL_PYTHON_FILE_NAME	"/root/m1-server/mac_server_ctrl/mac_server_ctrl.py"
 #define	CMD_LINE_CHARS	128
 
 //------------------------------------------------------------------------------
