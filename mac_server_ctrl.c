@@ -38,15 +38,15 @@
 #define	CMD_LINE_CHARS	128
 
 //------------------------------------------------------------------------------
-int set_erase_mac (char *rboard, char *rmac)
+int set_erase_mac (char *rboard, char *rmac, char ctrl_server)
 {
 	FILE *fp;
 	char cmd_line[CMD_LINE_CHARS];
 
 	// python send command setup
 	memset (cmd_line, 0, sizeof(cmd_line));
-	sprintf(cmd_line, "python3 %s -e %s %s\n",
-			MAC_SERVER_CTRL_PYTHON_FILE_NAME, rboard, rmac);
+	sprintf(cmd_line, "python3 %s -e %s %s %s\n",
+			MAC_SERVER_CTRL_PYTHON_FILE_NAME, rboard, rmac, ctrl_server ? "-f" : " ");
 
 	if (NULL != (fp = popen(cmd_line, "r"))) {
 		// read buffer init
@@ -63,15 +63,15 @@ int set_erase_mac (char *rboard, char *rmac)
 }
 
 //------------------------------------------------------------------------------
-int get_mac_uuid (char *rboard, char rtype, char *rdata)
+int get_mac_uuid (char *rboard, char rtype, char *rdata, char ctrl_server)
 {
 	FILE *fp;
 	char cmd_line[CMD_LINE_CHARS];
 
 	// python send command setup
 	memset (cmd_line, 0, sizeof(cmd_line));
-	sprintf(cmd_line, "python3 %s -r %s\n",
-			MAC_SERVER_CTRL_PYTHON_FILE_NAME, rboard);
+	sprintf(cmd_line, "python3 %s -r %s %s\n",
+			MAC_SERVER_CTRL_PYTHON_FILE_NAME, rboard, ctrl_server ? "-f" : " ");
 
 	if (NULL != (fp = popen(cmd_line, "r"))) {
 		// read buffer init
@@ -93,21 +93,36 @@ int get_mac_uuid (char *rboard, char rtype, char *rdata)
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
+#if defined(__DEBUG_APP__)
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 static void print_usage(const char *prog)
 {
 	printf("Usage: %s [-bre]\n", prog);
 	puts("  -b --board_name     request board name.\n"
 	     "  -r --request        request from server. (mac or uuid)\n"
 	     "  -e --erase          request erase mac.\n"
-		 "  e.g) request mac \n"
+		 "  -f --factory        *** warning *** : factory server ctrl\n"
+		 "  e.g) request mac from dev-server (mac address dosen't change) \n"
 		 "       mac_server_test -b n2l -r mac\n"
-		 "  e.g) request uuid \n"
+		 "  e.g) request mac from factory-server (mac address change) \n"
+		 "       mac_server_test -b n2l -r mac -f\n"
+		 "  e.g) request uuid from dev-server (uuid dosen't change) \n"
 		 "       mac_server_test -b n2l -r uuid\n"
-		 "  e.g) request erase mac \n"
+		 "  e.g) request uuid from dev-server (uuid change) \n"
+		 "       mac_server_test -b n2l -r uuid -f\n"
+		 "  e.g) request erase mac from dev-server \n"
 		 "       mac_server_test -b n2l -e 001e06123456\n"
+		 "  e.g) request erase mac from factory-server \n"
+		 "       mac_server_test -b n2l -e 001e06123456 -f\n"
 	);
 	exit(1);
 }
+
+//------------------------------------------------------------------------------
+/* Warning */
+/* 0 = dev-server control, 1 = factory-server control */
+static char OPT_ACCESS_SERVER = MAC_SERVER_CTRL_DEV_SERVER;
 
 //------------------------------------------------------------------------------
 static char *OPT_REQUEST_BOARD = "None";
@@ -121,11 +136,12 @@ static void parse_opts (int argc, char *argv[])
 			{ "board_name", 1, 0, 'b' },
 			{ "request",	1, 0, 'r' },
 			{ "erase",		1, 0, 'e' },
+			{ "factory",	0, 0, 'f' },
 			{ NULL, 0, 0, 0 },
 		};
 		int c;
 
-		c = getopt_long(argc, argv, "b:r:e:", lopts, NULL);
+		c = getopt_long(argc, argv, "b:r:e:f", lopts, NULL);
 
 		if (c == -1)
 			break;
@@ -142,6 +158,9 @@ static void parse_opts (int argc, char *argv[])
 			break;
 		case 'e':
 			OPT_ERASE_MAC = optarg;
+			break;
+		case 'f':
+			OPT_ACCESS_SERVER = MAC_SERVER_CTRL_FACTORY_SERVER;
 			break;
 		default:
 			print_usage(argv[0]);
@@ -163,7 +182,7 @@ int main(int argc, char **argv)
 		printf ("board name = %s, erase mac = %s, ret = %d\n",
 			OPT_REQUEST_BOARD,
 			OPT_ERASE_MAC,
-			set_erase_mac (OPT_REQUEST_BOARD, OPT_ERASE_MAC));
+			set_erase_mac (OPT_REQUEST_BOARD, OPT_ERASE_MAC, OPT_ACCESS_SERVER));
 	} else {
 		char rdata[MAC_SERVER_CTRL_TYPE_UUID_SIZE +1];
 		int ret;
@@ -171,12 +190,14 @@ int main(int argc, char **argv)
 		memset(rdata, 0, sizeof(rdata));
 		ret = get_mac_uuid (OPT_REQUEST_BOARD,
 							OPT_REQUEST_MAC ? MAC_SERVER_CTRL_TYPE_MAC : MAC_SERVER_CTRL_TYPE_UUID,
-							rdata);
+							rdata,
+							OPT_ACCESS_SERVER);
 		if (strstr(rdata, "001e06") != NULL)
-			printf ("board name = %s, request %s = %s, ret = %d\n",
+			printf ("board name = %s, request %s = %s, server = %s, ret = %d\n",
 				OPT_REQUEST_BOARD,
 				OPT_REQUEST_MAC ? "mac" : "uuid",
 				rdata,
+				OPT_ACCESS_SERVER ? "factory" : "dev",
 				ret);
 		else
 			printf ("board name = %s, request %s = %s, ret = %d\n",
@@ -188,5 +209,8 @@ int main(int argc, char **argv)
 	return 0;
 }
 
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+#endif	// #if defined(__DEBUG_APP__)
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
